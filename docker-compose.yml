@@ -1,0 +1,206 @@
+services:
+  # 1. Database (PostgreSQL)
+  postgres:
+    image: postgres:15-alpine
+    container_name: ssabre_postgres
+    environment:
+      TZ: Asia/Seoul
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 2. Redis (Cache & Queue)
+  redis:
+    image: redis:7-alpine
+    container_name: ssabre_redis
+    environment:
+      TZ: Asia/Seoul
+    ports:
+      - "6379:6379"
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 3. Backend (Spring Boot)
+  backend:
+    # build: ./backend
+    image: ssabre_backend:latest
+    container_name: ssabre_backend
+    environment:
+      # Timezone
+      TZ: Asia/Seoul
+      # Connect to Postgres container
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # Connect to Redis container
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # Upload Directory inside container
+      FILE_UPLOAD_DIR: /app/uploads
+      FILE_BASE_URL: ${FILE_BASE_URL}
+      # Mattermost Webhooks
+      MM_14th_WEBHOOK_URL: ${MM_14th_WEBHOOK_URL}
+      MM_15th_WEBHOOK_URL: ${MM_15th_WEBHOOK_URL}
+      # AI API Keys
+      AI_GEMINI_API_KEY: ${AI_GEMINI_API_KEY}
+      AI_GMS_API_KEY: ${AI_GMS_API_KEY}
+      AI_GEMINI_MODEL: gemini-2.5-flash-lite
+    volumes:
+      # Map host uploads folder to container
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 4. Frontend (Vite + React + Nginx)
+  frontend:
+    # build: ./frontend
+    image: ssabre_frontend:latest
+    container_name: ssabre_frontend
+    environment:
+      TZ: Asia/Seoul
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 5. Nginx (Reverse Proxy & Static Files)
+  nginx:
+    image: nginx:alpine
+    container_name: ssabre_nginx
+    ports:
+      - "80:80"
+    volumes:
+      # Custom Config
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Map SAME uploads folder to Nginx to serve files
+      - ./uploads:/app/uploads:ro
+    depends_on:
+      - backend
+      - frontend
+      - grafana
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 6. Loki (Log Aggregation)
+  loki:
+    image: grafana/loki:latest
+    container_name: ssabre_loki
+    environment:
+      TZ: Asia/Seoul
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 7. Promtail (Log Collector)
+  promtail:
+    image: grafana/promtail:latest
+    container_name: ssabre_promtail
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 8. Grafana (Dashboard)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ssabre_grafana
+    ports:
+      - "3001:3000" # Mapped to 3001 to avoid conflict if any
+    volumes:
+      - ./monitoring/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    environment:
+      - TZ=Asia/Seoul
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      # Reverse Proxy Config
+      - GF_SERVER_DOMAIN=${PUBLIC_HOST:-localhost}
+      - GF_SERVER_ROOT_URL=${PUBLIC_BASE_URL:-http://localhost}/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    depends_on:
+      - loki
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 9. Prometheus (Metrics Collection)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ssabre_prometheus
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.external-url=${PUBLIC_BASE_URL:-http://localhost}/prometheus/'
+      - '--web.route-prefix=/'
+    depends_on:
+      - backend
+    networks:
+      - ssabre_network
+    restart: always
+
+  # 10. NetData (Real-time Infrastructure Monitoring)
+  netdata:
+    image: netdata/netdata:latest
+    container_name: ssabre_netdata
+    hostname: ssabre-server
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/host/etc/os-release:ro
+    environment:
+      - TZ=Asia/Seoul
+      - DOCKER_HOST=/var/run/docker.sock
+    networks:
+      - ssabre_network
+    restart: always
+
+networks:
+  ssabre_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  prometheus_data:

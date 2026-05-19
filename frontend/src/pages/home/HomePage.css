@@ -1,0 +1,127 @@
+.hero-section {
+    background-color: var(--bg-secondary);
+    padding: 80px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.hero-section .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.hero-content {
+    max-width: 600px;
+}
+
+.hero-title {
+    font-size: 56px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: var(--android-navy);
+    margin-bottom: 24px;
+}
+
+.hero-subtitle {
+    font-size: 20px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+    line-height: 1.5;
+}
+
+.hero-actions {
+    display: flex;
+    gap: 16px;
+}
+
+.hero-image {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.android-robot-placeholder {
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-20px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+.section-title {
+    font-size: 32px;
+    color: var(--text-primary);
+    margin: 60px 0 40px;
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 24px;
+    margin-bottom: 80px;
+}
+
+.feature-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+    background: white;
+    cursor: pointer;
+}
+
+.feature-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card-image-placeholder {
+    height: 200px;
+    width: 100%;
+}
+
+.card-image-placeholder.blue {
+    background-color: #E8F0FE;
+}
+
+.card-image-placeholder.green {
+    background-color: #E6F4EA;
+}
+
+.card-image-placeholder.navy {
+    background-color: #E8EAED;
+}
+
+.card-content {
+    padding: 24px;
+}
+
+.card-content h3 {
+    font-size: 22px;
+    margin: 0 0 12px;
+    color: var(--text-primary);
+}
+
+.card-content p {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.card-link {
+    color: var(--android-blue);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+}

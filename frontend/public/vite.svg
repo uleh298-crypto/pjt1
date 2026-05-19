@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5B7FFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B5FDF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded Rectangle Background -->
+  <rect x="20" y="20" width="160" height="160" rx="35" ry="35" fill="url(#mainGradient)"/>
+  
+  <!-- Letter S -->
+  <text x="100" y="135" font-family="Arial, sans-serif" font-size="110" font-weight="bold" fill="white" text-anchor="middle">S</text>
+</svg>

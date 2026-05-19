@@ -1,0 +1,72 @@
+spring:
+  application:
+    name: ssabre
+
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:10MB}
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ssabre_db}
+    username: ${SPRING_DATASOURCE_USERNAME:ssabre_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    open-in-view: false
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: ${SPRING_JPA_FORMAT_SQL:false}
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+mattermost:
+  webhook_14:
+    url: ${MM_14th_WEBHOOK_URL:}
+  webhook_15:
+    url: ${MM_15th_WEBHOOK_URL:}
+
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:./uploads}
+  base-url: ${FILE_BASE_URL:}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+ai:
+  provider: ${AI_PROVIDER:gemini}
+  gemini:
+    auth-key: ${AI_GEMINI_API_KEY:${AI_GMS_API_KEY:}}
+    url: ${GMS_URL:}
+    model: ${AI_GEMINI_MODEL:gemini-2.5-flash}
+
+logging:
+  level:
+    com.ssafy.ssabre: ${LOG_LEVEL_APP:INFO}
+    root: ${LOG_LEVEL_ROOT:INFO}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,prometheus}
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when_authorized}
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ssabre

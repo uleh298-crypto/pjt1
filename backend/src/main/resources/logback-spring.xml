@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Default Spring Boot Defaults -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- 1. Disable Pretty Print (Must be single line for Promtail) -->
+            <!-- <jsonGeneratorDecorator ... removed ... /> -->
+            
+            <!-- 2. Rename @timestamp to timestamp to avoid JMESPath parsing errors in Promtail -->
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+            </fieldNames>
+
+            <!-- Custom Fields -->
+            <customFields>{"app_name": "ssabre_backend"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- Root Logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- Application Logger -->
+    <logger name="com.ssafy.ssabre" level="DEBUG"/>
+</configuration>

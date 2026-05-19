@@ -1,0 +1,152 @@
+stages:
+  - deploy
+
+# Build & Deploy Backend
+deploy-backend:
+  stage: deploy
+  image: docker:stable
+  tags:
+    - ssafy
+  only:
+    refs:
+      - dev-backend
+    changes:
+      - backend/**/*
+      - docker-compose.yml
+      - nginx/**/*
+      - monitoring/**/*
+      - .gitlab-ci.yml
+  variables:
+    IMAGE_NAME: ssabre_backend:latest
+    DOCKER_BUILDKIT: 1
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $SSH_HOST >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo "Building Docker Image on Host..."
+    - docker build -t $IMAGE_NAME ./backend
+    
+    - ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "mkdir -p $DEPLOY_PATH/nginx && mkdir -p $DEPLOY_PATH/monitoring"
+    
+    - scp -o StrictHostKeyChecking=no docker-compose.yml $SSH_USER@$SSH_HOST:$DEPLOY_PATH/
+    - scp -o StrictHostKeyChecking=no nginx/nginx.conf $SSH_USER@$SSH_HOST:$DEPLOY_PATH/nginx/
+    - scp -o StrictHostKeyChecking=no monitoring/* $SSH_USER@$SSH_HOST:$DEPLOY_PATH/monitoring/
+
+    - echo "$ENV_FILE" | ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "cat > $DEPLOY_PATH/.env"
+    
+    - echo "Deploying Backend on Server..."
+    - ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "
+        cd $DEPLOY_PATH &&
+        sudo docker compose up -d --no-deps backend nginx loki promtail grafana prometheus netdata &&
+        sudo docker image prune -f
+      "
+  
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" == "success" ]; then
+        COLOR="#28a745"
+        STATUS_TEXT="✅ 백엔드 배포 성공 (Deployment Success)"
+      else
+        COLOR="#dc3545"
+        STATUS_TEXT="❌ 백엔드 배포 실패 (Deployment Failed)"
+      fi
+      
+      PAYLOAD=$(cat <<EOF
+      {
+        "attachments": [
+          {
+            "color": "$COLOR",
+            "title": "$STATUS_TEXT",
+            "text": "🚀 **Project**: $CI_PROJECT_NAME\n🌿 **Branch**: $CI_COMMIT_REF_NAME\n👤 **User**: $GITLAB_USER_NAME\n📝 **Commit**: $CI_COMMIT_MESSAGE",
+            "fields": [
+              { "short": true, "title": "Job ID", "value": "<$CI_JOB_URL|$CI_JOB_ID>" },
+              { "short": true, "title": "Commit", "value": "<$CI_PROJECT_URL/-/commit/$CI_COMMIT_SHA|$CI_COMMIT_SHORT_SHA>" }
+            ]
+          }
+        ]
+      }
+      EOF
+      )
+      
+      if [ ! -z "$MM_WEBHOOK_URL" ]; then
+        apk add --no-cache curl
+        curl -i -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" $MM_WEBHOOK_URL
+      fi
+
+# Build & Deploy Frontend
+deploy-frontend:
+  stage: deploy
+  image: docker:stable
+  tags:
+    - ssafy
+  only:
+    refs:
+      - dev-backend
+      - dev-frontend
+    changes:
+      - frontend/**/*
+      - docker-compose.yml
+      - nginx/**/*
+      - .gitlab-ci.yml
+  variables:
+    IMAGE_NAME: ssabre_frontend:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $SSH_HOST >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo "Building Docker Image on Host..."
+    - docker build -t $IMAGE_NAME ./frontend
+    
+    - ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "mkdir -p $DEPLOY_PATH/nginx"
+    
+    - scp -o StrictHostKeyChecking=no docker-compose.yml $SSH_USER@$SSH_HOST:$DEPLOY_PATH/
+    - scp -o StrictHostKeyChecking=no nginx/nginx.conf $SSH_USER@$SSH_HOST:$DEPLOY_PATH/nginx/
+
+    - echo "Deploying Frontend on Server..."
+    - ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "
+        cd $DEPLOY_PATH &&
+        sudo docker compose up -d --no-deps frontend nginx &&
+        sudo docker image prune -f
+      "
+  
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" == "success" ]; then
+        COLOR="#28a745"
+        STATUS_TEXT="✅ 프론트엔드 배포 성공 (Deployment Success)"
+      else
+        COLOR="#dc3545"
+        STATUS_TEXT="❌ 프론트엔드 배포 실패 (Deployment Failed)"
+      fi
+      
+      PAYLOAD=$(cat <<EOF
+      {
+        "attachments": [
+          {
+            "color": "$COLOR",
+            "title": "$STATUS_TEXT",
+            "text": "🚀 **Project**: $CI_PROJECT_NAME\n🌿 **Branch**: $CI_COMMIT_REF_NAME\n👤 **User**: $GITLAB_USER_NAME\n📝 **Commit**: $CI_COMMIT_MESSAGE",
+            "fields": [
+              { "short": true, "title": "Job ID", "value": "<$CI_JOB_URL|$CI_JOB_ID>" },
+              { "short": true, "title": "Commit", "value": "<$CI_PROJECT_URL/-/commit/$CI_COMMIT_SHA|$CI_COMMIT_SHORT_SHA>" }
+            ]
+          }
+        ]
+      }
+      EOF
+      )
+      
+      if [ ! -z "$MM_WEBHOOK_URL" ]; then
+        apk add --no-cache curl
+        curl -i -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" $MM_WEBHOOK_URL
+      fi
